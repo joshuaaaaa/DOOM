@@ -317,24 +317,58 @@ class DoomGame {
       this.keys[e.key.toLowerCase()] = false;
     });
 
-    // Mouse movement
-    this.canvas.addEventListener('mousemove', (e) => {
+    // Pointer lock mouse movement handler
+    const mouseMoveHandler = (e) => {
       if (!this.isRunning || this.isPaused) return;
-      this.mouseMovement = e.movementX || 0;
-    });
+      // Use movementX from pointer lock
+      this.mouseMovement = e.movementX || e.mozMovementX || e.webkitMovementX || 0;
+    };
 
-    // Mouse click to shoot
-    this.canvas.addEventListener('click', (e) => {
+    // Canvas click - request pointer lock or shoot
+    this.canvas.addEventListener('click', async () => {
       if (!this.isRunning || this.isPaused) return;
-      this._shoot();
-    });
 
-    // Request pointer lock
-    this.canvas.addEventListener('click', () => {
-      if (this.isRunning && !this.isPaused) {
-        this.canvas.requestPointerLock();
+      // Check if pointer is locked (cross-browser)
+      const pointerLocked = document.pointerLockElement === this.canvas ||
+                           document.mozPointerLockElement === this.canvas ||
+                           document.webkitPointerLockElement === this.canvas;
+
+      if (!pointerLocked) {
+        // Request pointer lock with unadjustedMovement for raw input
+        try {
+          await this.canvas.requestPointerLock({
+            unadjustedMovement: true,
+          });
+        } catch (error) {
+          // Fallback for browsers that don't support unadjustedMovement
+          this.canvas.requestPointerLock();
+        }
+      } else {
+        // Already locked, shoot
+        this._shoot();
       }
     });
+
+    // Pointer lock change handler (cross-browser)
+    const pointerLockChange = () => {
+      const pointerLocked = document.pointerLockElement === this.canvas ||
+                           document.mozPointerLockElement === this.canvas ||
+                           document.webkitPointerLockElement === this.canvas;
+
+      if (pointerLocked) {
+        // Pointer locked - start tracking mouse movement
+        document.addEventListener('mousemove', mouseMoveHandler, false);
+      } else {
+        // Pointer unlocked - stop tracking mouse movement
+        document.removeEventListener('mousemove', mouseMoveHandler, false);
+        this.mouseMovement = 0;
+      }
+    };
+
+    // Listen for pointer lock changes (cross-browser)
+    document.addEventListener('pointerlockchange', pointerLockChange, false);
+    document.addEventListener('mozpointerlockchange', pointerLockChange, false);
+    document.addEventListener('webkitpointerlockchange', pointerLockChange, false);
   }
 
   start() {
