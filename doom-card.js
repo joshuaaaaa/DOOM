@@ -174,7 +174,7 @@ class DoomCard extends HTMLElement {
     menu.innerHTML = `
       <h2>DOOM</h2>
       <p style="font-size: 18px; margin-bottom: 10px;">Classic First-Person Shooter</p>
-      <p style="font-size: 14px; margin-bottom: 30px; color: #888;">Click canvas after start to enable mouse control</p>
+      <p style="font-size: 14px; margin-bottom: 20px; color: #ff0;">⚠️ After starting, CLICK on the game to enable mouse!</p>
       <button id="start-btn">START GAME</button>
     `;
 
@@ -324,29 +324,26 @@ class DoomGame {
       this.keys[e.key.toLowerCase()] = false;
     });
 
-    // Mouse movement - only when pointer is locked
+    // Mouse movement
     this.canvas.addEventListener('mousemove', (e) => {
       if (!this.isRunning || this.isPaused) return;
-      // Only use mouse movement if pointer is actually locked
-      if (document.pointerLockElement === this.canvas) {
-        this.mouseMovement = e.movementX || 0;
+      if (document.pointerLockElement === this.canvas || document.mozPointerLockElement === this.canvas) {
+        this.mouseMovement = e.movementX || e.mozMovementX || 0;
       }
     });
 
-    // Mouse click - request lock first, then shoot on subsequent clicks
+    // Click to enable pointer lock and shoot
     this.canvas.addEventListener('click', (e) => {
       if (!this.isRunning) return;
 
-      // Always try to get pointer lock on click
-      if (document.pointerLockElement !== this.canvas) {
-        this.canvas.requestPointerLock();
-        return;
-      }
+      // Request pointer lock
+      this.canvas.requestPointerLock = this.canvas.requestPointerLock ||
+                                        this.canvas.mozRequestPointerLock;
+      this.canvas.requestPointerLock();
 
-      // If locked and not paused, shoot
-      if (!this.isPaused) {
+      // Shoot if already locked
+      if ((document.pointerLockElement === this.canvas || document.mozPointerLockElement === this.canvas) && !this.isPaused) {
         this._shoot();
-        e.preventDefault();
       }
     });
 
@@ -354,8 +351,7 @@ class DoomGame {
     this.canvas.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       if (!this.isRunning || this.isPaused) return;
-      if (document.pointerLockElement === this.canvas) {
-        // Cycle to next weapon
+      if (document.pointerLockElement === this.canvas || document.mozPointerLockElement === this.canvas) {
         this.currentWeapon = (this.currentWeapon + 1) % this.weapons.length;
         this._updateHUD();
       }
@@ -365,25 +361,24 @@ class DoomGame {
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       if (!this.isRunning || this.isPaused) return;
-      if (document.pointerLockElement === this.canvas) {
+      if (document.pointerLockElement === this.canvas || document.mozPointerLockElement === this.canvas) {
         if (e.deltaY < 0) {
-          // Scroll up - previous weapon
           this.currentWeapon = (this.currentWeapon - 1 + this.weapons.length) % this.weapons.length;
         } else {
-          // Scroll down - next weapon
           this.currentWeapon = (this.currentWeapon + 1) % this.weapons.length;
         }
         this._updateHUD();
       }
     });
 
-    // Pointer lock change event
-    document.addEventListener('pointerlockchange', () => {
-      if (document.pointerLockElement !== this.canvas) {
-        // Pointer lock was released, reset mouse movement
+    // Pointer lock change events (both standard and Firefox)
+    const lockChangeHandler = () => {
+      if (!document.pointerLockElement && !document.mozPointerLockElement) {
         this.mouseMovement = 0;
       }
-    });
+    };
+    document.addEventListener('pointerlockchange', lockChangeHandler);
+    document.addEventListener('mozpointerlockchange', lockChangeHandler);
   }
 
   start() {
@@ -416,12 +411,11 @@ class DoomGame {
     this.isPaused = !this.isPaused;
     const menu = this.shadowRoot.querySelector('.menu');
     if (this.isPaused) {
-      menu.innerHTML = '<h2>PAUSED</h2><p style="font-size: 18px;">Press ESC to continue<br><small>Click to resume and enable mouse</small></p>';
+      menu.innerHTML = '<h2>PAUSED</h2><p style="font-size: 18px;">Press ESC to continue</p><p style="font-size: 14px; color: #ff0; margin-top: 10px;">⚠️ After unpause, CLICK to enable mouse again!</p>';
       menu.classList.add('active');
       document.exitPointerLock();
     } else {
       menu.classList.remove('active');
-      // User needs to click to re-enable pointer lock after unpause
     }
   }
 
