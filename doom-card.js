@@ -782,28 +782,15 @@ class DoomGame {
       const enemyX = screenX - spriteWidth / 2;
       const enemyY = (this.height - spriteHeight) / 2;
 
-      // Shadow/outline
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      this.ctx.fillRect(enemyX - 2, enemyY - 2, spriteWidth + 4, spriteHeight + 4);
-
-      // Main body
-      this.ctx.fillStyle = `rgb(${baseColor.r * enemyBrightness}, ${baseColor.g * enemyBrightness}, ${baseColor.b * enemyBrightness})`;
-      this.ctx.fillRect(enemyX, enemyY, spriteWidth, spriteHeight);
-
-      // Add highlight effect
-      const highlightGradient = this.ctx.createLinearGradient(enemyX, enemyY, enemyX + spriteWidth, enemyY);
-      highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
-      highlightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)');
-      highlightGradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
-      this.ctx.fillStyle = highlightGradient;
-      this.ctx.fillRect(enemyX, enemyY, spriteWidth / 2, spriteHeight);
+      // Draw detailed enemy sprite
+      this._drawEnemySprite(enemyX, enemyY, spriteWidth, spriteHeight, baseColor, enemyBrightness, enemy.state, distance);
 
       // Health bar with border
       const healthBarWidth = spriteWidth;
       const healthBarHeight = 6;
       const healthPercent = enemy.health / enemy.maxHealth;
       const barX = enemyX;
-      const barY = enemyY - 12;
+      const barY = enemyY - 15;
 
       // Health bar border
       this.ctx.fillStyle = '#000';
@@ -813,10 +800,18 @@ class DoomGame {
       this.ctx.fillStyle = '#8b0000';
       this.ctx.fillRect(barX, barY, healthBarWidth, healthBarHeight);
 
-      // Health bar foreground (green)
-      const healthGradient = this.ctx.createLinearGradient(barX, barY, barX, barY + healthBarHeight);
-      healthGradient.addColorStop(0, '#0f0');
-      healthGradient.addColorStop(1, '#0a0');
+      // Health bar foreground (green to yellow to red)
+      const healthGradient = this.ctx.createLinearGradient(barX, barY, barX + healthBarWidth, barY);
+      if (healthPercent > 0.5) {
+        healthGradient.addColorStop(0, '#0f0');
+        healthGradient.addColorStop(1, '#9f0');
+      } else if (healthPercent > 0.25) {
+        healthGradient.addColorStop(0, '#ff0');
+        healthGradient.addColorStop(1, '#fa0');
+      } else {
+        healthGradient.addColorStop(0, '#f00');
+        healthGradient.addColorStop(1, '#a00');
+      }
       this.ctx.fillStyle = healthGradient;
       this.ctx.fillRect(barX, barY, healthBarWidth * healthPercent, healthBarHeight);
     }
@@ -844,6 +839,154 @@ class DoomGame {
       this.ctx.fillRect(screenX - 2, screenY - 2, 4, 4);
       this.ctx.globalAlpha = 1;
     }
+  }
+
+  _drawEnemySprite(x, y, width, height, baseColor, brightness, state, distance) {
+    // Animation offset based on state and time
+    const animTime = Date.now() * 0.005;
+    const bounce = state === 'chase' ? Math.sin(animTime) * 2 : 0;
+
+    // Shadow on ground
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    this.ctx.ellipse(x + width / 2, y + height + 2, width / 2.5, width / 8, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Body proportions
+    const headHeight = height * 0.25;
+    const bodyHeight = height * 0.45;
+    const legsHeight = height * 0.3;
+    const headWidth = width * 0.6;
+    const bodyWidth = width * 0.7;
+
+    const bodyY = y + headHeight + bounce;
+
+    // Outline/shadow for depth
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    this.ctx.fillRect(x - 2, y - 2, width + 4, height + 4);
+
+    // === LEGS ===
+    const legY = bodyY + bodyHeight;
+    const legWidth = width * 0.25;
+    const legOffset = state === 'chase' ? Math.sin(animTime * 2) * 3 : 0;
+
+    // Left leg
+    const legGradientL = this.ctx.createLinearGradient(x + width * 0.2, legY, x + width * 0.2 + legWidth, legY);
+    legGradientL.addColorStop(0, `rgb(${baseColor.r * brightness * 0.5}, ${baseColor.g * brightness * 0.5}, ${baseColor.b * brightness * 0.5})`);
+    legGradientL.addColorStop(1, `rgb(${baseColor.r * brightness * 0.3}, ${baseColor.g * brightness * 0.3}, ${baseColor.b * brightness * 0.3})`);
+    this.ctx.fillStyle = legGradientL;
+    this.ctx.fillRect(x + width * 0.2, legY + legOffset, legWidth, legsHeight);
+
+    // Right leg
+    const legGradientR = this.ctx.createLinearGradient(x + width * 0.55, legY, x + width * 0.55 + legWidth, legY);
+    legGradientR.addColorStop(0, `rgb(${baseColor.r * brightness * 0.5}, ${baseColor.g * brightness * 0.5}, ${baseColor.b * brightness * 0.5})`);
+    legGradientR.addColorStop(1, `rgb(${baseColor.r * brightness * 0.3}, ${baseColor.g * brightness * 0.3}, ${baseColor.b * brightness * 0.3})`);
+    this.ctx.fillStyle = legGradientR;
+    this.ctx.fillRect(x + width * 0.55, legY - legOffset, legWidth, legsHeight);
+
+    // === BODY ===
+    const bodyX = x + (width - bodyWidth) / 2;
+
+    // Body gradient (main color)
+    const bodyGradient = this.ctx.createLinearGradient(bodyX, bodyY, bodyX + bodyWidth, bodyY);
+    bodyGradient.addColorStop(0, `rgb(${baseColor.r * brightness * 0.9}, ${baseColor.g * brightness * 0.9}, ${baseColor.b * brightness * 0.9})`);
+    bodyGradient.addColorStop(0.5, `rgb(${baseColor.r * brightness}, ${baseColor.g * brightness}, ${baseColor.b * brightness})`);
+    bodyGradient.addColorStop(1, `rgb(${baseColor.r * brightness * 0.7}, ${baseColor.g * brightness * 0.7}, ${baseColor.b * brightness * 0.7})`);
+    this.ctx.fillStyle = bodyGradient;
+    this.ctx.fillRect(bodyX, bodyY, bodyWidth, bodyHeight);
+
+    // Body details (armor plates)
+    this.ctx.fillStyle = `rgba(0, 0, 0, 0.3)`;
+    const plateSpacing = bodyHeight / 4;
+    for (let i = 1; i < 4; i++) {
+      this.ctx.fillRect(bodyX + 2, bodyY + i * plateSpacing, bodyWidth - 4, 2);
+    }
+
+    // Arms
+    const armWidth = width * 0.15;
+    const armHeight = bodyHeight * 0.8;
+    const armY = bodyY + bodyHeight * 0.15;
+    const armSwing = state === 'attack' ? Math.sin(animTime * 4) * 5 : (state === 'chase' ? Math.sin(animTime * 1.5) * 4 : 0);
+
+    // Left arm
+    this.ctx.fillStyle = `rgb(${baseColor.r * brightness * 0.6}, ${baseColor.g * brightness * 0.6}, ${baseColor.b * brightness * 0.6})`;
+    this.ctx.fillRect(bodyX - armWidth, armY + armSwing, armWidth, armHeight);
+
+    // Right arm
+    this.ctx.fillRect(bodyX + bodyWidth, armY - armSwing, armWidth, armHeight);
+
+    // === HEAD ===
+    const headX = x + (width - headWidth) / 2;
+    const headY = y + bounce;
+
+    // Head gradient
+    const headGradient = this.ctx.createLinearGradient(headX, headY, headX + headWidth, headY);
+    headGradient.addColorStop(0, `rgb(${baseColor.r * brightness * 0.8}, ${baseColor.g * brightness * 0.8}, ${baseColor.b * brightness * 0.8})`);
+    headGradient.addColorStop(0.5, `rgb(${baseColor.r * brightness}, ${baseColor.g * brightness}, ${baseColor.b * brightness})`);
+    headGradient.addColorStop(1, `rgb(${baseColor.r * brightness * 0.6}, ${baseColor.g * brightness * 0.6}, ${baseColor.b * brightness * 0.6})`);
+    this.ctx.fillStyle = headGradient;
+    this.ctx.fillRect(headX, headY, headWidth, headHeight);
+
+    // Helmet detail
+    this.ctx.fillStyle = `rgba(255, 255, 255, 0.2)`;
+    this.ctx.fillRect(headX + headWidth * 0.1, headY + 2, headWidth * 0.8, headHeight * 0.2);
+
+    // Eyes (only if close enough)
+    if (distance < 6) {
+      const eyeWidth = headWidth * 0.15;
+      const eyeHeight = headHeight * 0.25;
+      const eyeY = headY + headHeight * 0.4;
+
+      // Eye glow based on state
+      let eyeColor = '#0f0'; // idle - green
+      if (state === 'chase') eyeColor = '#ff0'; // yellow
+      if (state === 'attack') eyeColor = '#f00'; // red
+
+      // Left eye
+      this.ctx.fillStyle = '#000';
+      this.ctx.fillRect(headX + headWidth * 0.25, eyeY, eyeWidth, eyeHeight);
+      this.ctx.fillStyle = eyeColor;
+      this.ctx.fillRect(headX + headWidth * 0.25 + 1, eyeY + 1, eyeWidth - 2, eyeHeight - 2);
+
+      // Right eye
+      this.ctx.fillStyle = '#000';
+      this.ctx.fillRect(headX + headWidth * 0.6, eyeY, eyeWidth, eyeHeight);
+      this.ctx.fillStyle = eyeColor;
+      this.ctx.fillRect(headX + headWidth * 0.6 + 1, eyeY + 1, eyeWidth - 2, eyeHeight - 2);
+
+      // Eye glow effect
+      if (state === 'attack') {
+        this.ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
+        this.ctx.fillRect(headX + headWidth * 0.25 - 1, eyeY - 1, eyeWidth + 2, eyeHeight + 2);
+        this.ctx.fillRect(headX + headWidth * 0.6 - 1, eyeY - 1, eyeWidth + 2, eyeHeight + 2);
+      }
+    }
+
+    // Weapon in hand (if attacking)
+    if (state === 'attack' && distance < 7) {
+      const weaponX = bodyX + bodyWidth;
+      const weaponY = armY - armSwing + armHeight / 2;
+      const weaponWidth = width * 0.25;
+      const weaponHeight = width * 0.1;
+
+      // Weapon
+      this.ctx.fillStyle = '#666';
+      this.ctx.fillRect(weaponX + armWidth, weaponY, weaponWidth, weaponHeight);
+      this.ctx.fillStyle = '#888';
+      this.ctx.fillRect(weaponX + armWidth, weaponY, weaponWidth * 0.3, weaponHeight);
+
+      // Muzzle flash
+      if (Math.sin(animTime * 8) > 0.7) {
+        this.ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+        this.ctx.fillRect(weaponX + armWidth + weaponWidth, weaponY - weaponHeight / 2, weaponWidth * 0.3, weaponHeight * 2);
+        this.ctx.fillStyle = 'rgba(255, 200, 0, 0.6)';
+        this.ctx.fillRect(weaponX + armWidth + weaponWidth, weaponY, weaponWidth * 0.5, weaponHeight);
+      }
+    }
+
+    // Highlight on top for 3D effect
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    this.ctx.fillRect(headX, headY, headWidth / 3, headHeight);
+    this.ctx.fillRect(bodyX, bodyY, bodyWidth / 3, bodyHeight / 2);
   }
 
   _gameOver() {
