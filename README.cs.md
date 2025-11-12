@@ -79,9 +79,11 @@ To je vše! Žádná další konfigurace není potřeba.
 
 ### Myš
 
-- **Pohyb Myši** - Rozhlížení (když je kurzor uzamčen)
+- **Pohyb Myši** - Rozhlížení (automaticky se uzamkne při startu hry)
 - **Levé Tlačítko** - Střelba
-- **Klik na Canvas** - Uzamknout kurzor (pro rozhlížení myší)
+- **Pravé Tlačítko** - Přepínání zbraní (další zbraň)
+- **Kolečko Nahoru** - Předchozí zbraň
+- **Kolečko Dolů** - Další zbraň
 
 ## Hratelnost
 

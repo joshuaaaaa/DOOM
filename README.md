@@ -81,9 +81,11 @@ That's it! No additional configuration needed.
 
 ### Mouse
 
-- **Move Mouse** - Look around (when pointer is locked)
+- **Move Mouse** - Look around (automatically locks on game start)
 - **Left Click** - Shoot
-- **Click Canvas** - Lock pointer (for mouse look)
+- **Right Click** - Cycle weapons (next weapon)
+- **Mouse Wheel Up** - Previous weapon
+- **Mouse Wheel Down** - Next weapon
 
 ## Gameplay
 

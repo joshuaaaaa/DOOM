@@ -340,6 +340,33 @@ class DoomGame {
       }
     });
 
+    // Right mouse button - cycle weapons
+    this.canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (!this.isRunning || this.isPaused) return;
+      if (document.pointerLockElement === this.canvas) {
+        // Cycle to next weapon
+        this.currentWeapon = (this.currentWeapon + 1) % this.weapons.length;
+        this._updateHUD();
+      }
+    });
+
+    // Mouse wheel - weapon selection
+    this.canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (!this.isRunning || this.isPaused) return;
+      if (document.pointerLockElement === this.canvas) {
+        if (e.deltaY < 0) {
+          // Scroll up - previous weapon
+          this.currentWeapon = (this.currentWeapon - 1 + this.weapons.length) % this.weapons.length;
+        } else {
+          // Scroll down - next weapon
+          this.currentWeapon = (this.currentWeapon + 1) % this.weapons.length;
+        }
+        this._updateHUD();
+      }
+    });
+
     // Pointer lock change event
     document.addEventListener('pointerlockchange', () => {
       if (document.pointerLockElement !== this.canvas) {
@@ -356,6 +383,11 @@ class DoomGame {
     this._spawnEnemies();
     this._updateHUD();
     this._gameLoop();
+
+    // Automatically request pointer lock when game starts
+    setTimeout(() => {
+      this.canvas.requestPointerLock();
+    }, 100);
   }
 
   restart() {
