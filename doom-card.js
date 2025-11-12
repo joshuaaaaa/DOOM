@@ -466,11 +466,39 @@ class DoomGame {
 
       // Check if enemy is in crosshair (within small angle)
       if (Math.abs(angleDiff) < 0.1) {
-        return enemy;
+        // Check line of sight - bullets should not pass through walls
+        if (this._hasLineOfSight(this.player.x, this.player.y, enemy.x, enemy.y)) {
+          return enemy;
+        }
       }
     }
 
     return null;
+  }
+
+  _hasLineOfSight(x1, y1, x2, y2) {
+    // Ray cast from point 1 to point 2 to check if there's a wall in between
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const steps = Math.ceil(distance * 10); // Check every 0.1 units
+
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const checkX = x1 + dx * t;
+      const checkY = y1 + dy * t;
+
+      const mapX = Math.floor(checkX);
+      const mapY = Math.floor(checkY);
+
+      if (mapX < 0 || mapX >= this.map[0].length ||
+          mapY < 0 || mapY >= this.map.length ||
+          this.map[mapY][mapX] === 1) {
+        return false; // Wall blocks line of sight
+      }
+    }
+
+    return true; // Clear line of sight
   }
 
   _createParticles(x, y, color, count) {
@@ -617,17 +645,24 @@ class DoomGame {
     this.ctx.fillStyle = '#000';
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    // Render ceiling
-    this.ctx.fillStyle = '#1a1a1a';
+    // Render ceiling with gradient
+    const ceilingGradient = this.ctx.createLinearGradient(0, 0, 0, this.height / 2);
+    ceilingGradient.addColorStop(0, '#2a2a4a');
+    ceilingGradient.addColorStop(1, '#1a1a2a');
+    this.ctx.fillStyle = ceilingGradient;
     this.ctx.fillRect(0, 0, this.width, this.height / 2);
 
-    // Render floor
-    this.ctx.fillStyle = '#2a2a2a';
+    // Render floor with gradient
+    const floorGradient = this.ctx.createLinearGradient(0, this.height / 2, 0, this.height);
+    floorGradient.addColorStop(0, '#3a3a3a');
+    floorGradient.addColorStop(1, '#1a1a1a');
+    this.ctx.fillStyle = floorGradient;
     this.ctx.fillRect(0, this.height / 2, this.width, this.height / 2);
 
-    // Ray casting
+    // Ray casting with depth buffer
     const rayAngleStep = this.fov / this.numRays;
     const stripWidth = this.width / this.numRays;
+    const depthBuffer = []; // Store wall distances for each vertical strip
 
     for (let i = 0; i < this.numRays; i++) {
       const rayAngle = this.player.angle - this.fov / 2 + i * rayAngleStep;
@@ -636,9 +671,10 @@ class DoomGame {
 
       let distance = 0;
       let hit = false;
+      let hitSide = 0; // 0 = horizontal, 1 = vertical
 
       while (distance < this.maxDepth && !hit) {
-        distance += 0.1;
+        distance += 0.05; // Smaller steps for more accuracy
         const testX = this.player.x + rayDirX * distance;
         const testY = this.player.y + rayDirY * distance;
 
@@ -649,34 +685,71 @@ class DoomGame {
             mapY < 0 || mapY >= this.map.length ||
             this.map[mapY][mapX] === 1) {
           hit = true;
+
+          // Determine which side was hit
+          const hitX = testX - mapX;
+          const hitY = testY - mapY;
+          hitSide = (hitX < 0.1 || hitX > 0.9) ? 1 : 0;
         }
       }
 
       // Fix fisheye effect
       distance *= Math.cos(rayAngle - this.player.angle);
+      depthBuffer[i] = distance;
 
       // Calculate wall height
       const wallHeight = this.height / distance;
 
-      // Wall shading based on distance
+      // Wall shading based on distance and side
       const brightness = Math.max(0, 255 - distance * 15);
-      this.ctx.fillStyle = `rgb(${brightness}, ${brightness * 0.5}, ${brightness * 0.3})`;
+      const sideBrightness = hitSide === 1 ? brightness * 0.7 : brightness;
 
+      // Different colors for horizontal and vertical walls
+      if (hitSide === 1) {
+        this.ctx.fillStyle = `rgb(${sideBrightness * 0.8}, ${sideBrightness * 0.4}, ${sideBrightness * 0.3})`;
+      } else {
+        this.ctx.fillStyle = `rgb(${sideBrightness}, ${sideBrightness * 0.5}, ${sideBrightness * 0.3})`;
+      }
+
+      // Draw main wall
+      const wallTop = (this.height - wallHeight) / 2;
       this.ctx.fillRect(
         i * stripWidth,
-        (this.height - wallHeight) / 2,
+        wallTop,
         stripWidth + 1,
         wallHeight
       );
+
+      // Add texture-like effect with vertical lines
+      if (distance < 8) {
+        const textureOffset = (Math.floor(distance * 10) % 2) * 10;
+        this.ctx.fillStyle = `rgba(0, 0, 0, ${0.1 + distance * 0.02})`;
+        for (let j = 0; j < wallHeight; j += 4) {
+          if ((j + textureOffset) % 8 < 4) {
+            this.ctx.fillRect(i * stripWidth, wallTop + j, stripWidth + 1, 2);
+          }
+        }
+      }
+
+      // Add edge highlighting
+      if (i > 0 && Math.abs(depthBuffer[i] - depthBuffer[i - 1]) > 0.5) {
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        this.ctx.fillRect(i * stripWidth, wallTop, 1, wallHeight);
+      }
     }
 
-    // Render enemies (sprite-like)
+    // Render enemies (sprite-like) - only if visible (not behind walls)
     for (const enemy of this.enemies) {
       const dx = enemy.x - this.player.x;
       const dy = enemy.y - this.player.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
       if (distance > 10) continue;
+
+      // Check line of sight - don't render enemies behind walls
+      if (!this._hasLineOfSight(this.player.x, this.player.y, enemy.x, enemy.y)) {
+        continue;
+      }
 
       const angle = Math.atan2(dy, dx) - this.player.angle;
       let normalizedAngle = angle;
@@ -689,40 +762,63 @@ class DoomGame {
       const spriteHeight = this.height / distance;
       const spriteWidth = spriteHeight;
 
-      // Enemy color based on state
-      let color = '#0f0';
-      if (enemy.state === 'chase') color = '#ff0';
-      if (enemy.state === 'attack') color = '#f00';
+      // Check depth buffer - don't render if behind a wall
+      const stripIndex = Math.floor(screenX / stripWidth);
+      if (stripIndex >= 0 && stripIndex < depthBuffer.length) {
+        if (distance > depthBuffer[stripIndex]) {
+          continue; // Enemy is behind a wall
+        }
+      }
 
-      // Draw enemy as colored rectangle
-      this.ctx.fillStyle = color;
-      this.ctx.fillRect(
-        screenX - spriteWidth / 2,
-        (this.height - spriteHeight) / 2,
-        spriteWidth,
-        spriteHeight
-      );
+      // Enemy color based on state with better shading
+      let baseColor = { r: 0, g: 255, b: 0 }; // idle - green
+      if (enemy.state === 'chase') baseColor = { r: 255, g: 255, b: 0 }; // yellow
+      if (enemy.state === 'attack') baseColor = { r: 255, g: 0, b: 0 }; // red
 
-      // Health bar
+      // Apply distance-based shading
+      const enemyBrightness = Math.max(0.3, 1 - distance * 0.08);
+
+      // Draw enemy with outline for better visibility
+      const enemyX = screenX - spriteWidth / 2;
+      const enemyY = (this.height - spriteHeight) / 2;
+
+      // Shadow/outline
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      this.ctx.fillRect(enemyX - 2, enemyY - 2, spriteWidth + 4, spriteHeight + 4);
+
+      // Main body
+      this.ctx.fillStyle = `rgb(${baseColor.r * enemyBrightness}, ${baseColor.g * enemyBrightness}, ${baseColor.b * enemyBrightness})`;
+      this.ctx.fillRect(enemyX, enemyY, spriteWidth, spriteHeight);
+
+      // Add highlight effect
+      const highlightGradient = this.ctx.createLinearGradient(enemyX, enemyY, enemyX + spriteWidth, enemyY);
+      highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+      highlightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)');
+      highlightGradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+      this.ctx.fillStyle = highlightGradient;
+      this.ctx.fillRect(enemyX, enemyY, spriteWidth / 2, spriteHeight);
+
+      // Health bar with border
       const healthBarWidth = spriteWidth;
-      const healthBarHeight = 5;
+      const healthBarHeight = 6;
       const healthPercent = enemy.health / enemy.maxHealth;
+      const barX = enemyX;
+      const barY = enemyY - 12;
 
-      this.ctx.fillStyle = '#f00';
-      this.ctx.fillRect(
-        screenX - healthBarWidth / 2,
-        (this.height - spriteHeight) / 2 - 10,
-        healthBarWidth,
-        healthBarHeight
-      );
+      // Health bar border
+      this.ctx.fillStyle = '#000';
+      this.ctx.fillRect(barX - 1, barY - 1, healthBarWidth + 2, healthBarHeight + 2);
 
-      this.ctx.fillStyle = '#0f0';
-      this.ctx.fillRect(
-        screenX - healthBarWidth / 2,
-        (this.height - spriteHeight) / 2 - 10,
-        healthBarWidth * healthPercent,
-        healthBarHeight
-      );
+      // Health bar background (red)
+      this.ctx.fillStyle = '#8b0000';
+      this.ctx.fillRect(barX, barY, healthBarWidth, healthBarHeight);
+
+      // Health bar foreground (green)
+      const healthGradient = this.ctx.createLinearGradient(barX, barY, barX, barY + healthBarHeight);
+      healthGradient.addColorStop(0, '#0f0');
+      healthGradient.addColorStop(1, '#0a0');
+      this.ctx.fillStyle = healthGradient;
+      this.ctx.fillRect(barX, barY, healthBarWidth * healthPercent, healthBarHeight);
     }
 
     // Render particles
