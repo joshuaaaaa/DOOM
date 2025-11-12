@@ -14,15 +14,20 @@ Retro DOOM-like first-person shooter game as a Home Assistant Lovelace card!
 
 ## Controls
 
+### Keyboard
 - **I** - Move forward
 - **K** - Move backward
 - **J** - Turn left
 - **L** - Turn right
-- **Mouse Movement** - Look around (auto-locks on start)
-- **Left Click** or **Space** - Shoot
-- **Right Click** - Cycle weapons
-- **Mouse Wheel** - Switch weapons
+- **Space** - Shoot
 - **1-3** - Quick weapon select
 - **ESC** - Pause menu
+
+### Mouse (Click canvas first!)
+- **Click Canvas** - Enable mouse control
+- **Mouse Movement** - Look around
+- **Left Click** - Shoot
+- **Right Click** - Cycle weapons
+- **Mouse Wheel** - Switch weapons
 
 Experience classic DOOM-style gameplay right in your Home Assistant dashboard!

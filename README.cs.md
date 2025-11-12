@@ -84,11 +84,15 @@ To je vše! Žádná další konfigurace není potřeba.
 
 ### Myš
 
-- **Pohyb Myši** - Rozhlížení (automaticky se uzamkne při startu hry)
-- **Levé Tlačítko** - Střelba
+**Důležité:** Klikněte na herní canvas pro aktivaci ovládání myší (uzamčení kurzoru)
+
+- **Pohyb Myši** - Rozhlížení (po kliknutí na canvas)
+- **Levé Tlačítko** - Střelba (první klik aktivuje myš, další klik střílí)
 - **Pravé Tlačítko** - Přepínání zbraní (další zbraň)
 - **Kolečko Nahoru** - Předchozí zbraň
 - **Kolečko Dolů** - Další zbraň
+
+💡 **Tip:** První kliknutí na canvas uzamkne váš kurzor. Klikněte znovu pro střelbu!
 
 ## Hratelnost
 

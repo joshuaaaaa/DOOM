@@ -86,11 +86,15 @@ That's it! No additional configuration needed.
 
 ### Mouse
 
-- **Move Mouse** - Look around (automatically locks on game start)
-- **Left Click** - Shoot
+**Important:** Click on the game canvas to enable mouse control (pointer lock)
+
+- **Move Mouse** - Look around (after clicking canvas)
+- **Left Click** - Shoot (first click enables mouse, then shoots)
 - **Right Click** - Cycle weapons (next weapon)
 - **Mouse Wheel Up** - Previous weapon
 - **Mouse Wheel Down** - Next weapon
+
+💡 **Tip:** The first click on the canvas will lock your mouse cursor. Click again to shoot!
 
 ## Gameplay
 

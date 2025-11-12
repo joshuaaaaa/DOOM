@@ -173,7 +173,8 @@ class DoomCard extends HTMLElement {
     menu.className = 'menu active';
     menu.innerHTML = `
       <h2>DOOM</h2>
-      <p style="font-size: 18px; margin-bottom: 30px;">Click to start</p>
+      <p style="font-size: 18px; margin-bottom: 10px;">Classic First-Person Shooter</p>
+      <p style="font-size: 14px; margin-bottom: 30px; color: #888;">Click canvas after start to enable mouse control</p>
       <button id="start-btn">START GAME</button>
     `;
 
@@ -332,15 +333,18 @@ class DoomGame {
       }
     });
 
-    // Mouse click - shoot if pointer locked, otherwise request lock
+    // Mouse click - request lock first, then shoot on subsequent clicks
     this.canvas.addEventListener('click', (e) => {
       if (!this.isRunning) return;
 
+      // Always try to get pointer lock on click
       if (document.pointerLockElement !== this.canvas) {
-        // Not locked yet, request pointer lock
         this.canvas.requestPointerLock();
-      } else if (!this.isPaused) {
-        // Pointer is locked and game is running, shoot
+        return;
+      }
+
+      // If locked and not paused, shoot
+      if (!this.isPaused) {
         this._shoot();
         e.preventDefault();
       }
@@ -389,11 +393,6 @@ class DoomGame {
     this._spawnEnemies();
     this._updateHUD();
     this._gameLoop();
-
-    // Automatically request pointer lock when game starts
-    setTimeout(() => {
-      this.canvas.requestPointerLock();
-    }, 100);
   }
 
   restart() {
@@ -417,15 +416,12 @@ class DoomGame {
     this.isPaused = !this.isPaused;
     const menu = this.shadowRoot.querySelector('.menu');
     if (this.isPaused) {
-      menu.innerHTML = '<h2>PAUSED</h2><p style="font-size: 18px;">Press ESC to continue</p>';
+      menu.innerHTML = '<h2>PAUSED</h2><p style="font-size: 18px;">Press ESC to continue<br><small>Click to resume and enable mouse</small></p>';
       menu.classList.add('active');
       document.exitPointerLock();
     } else {
       menu.classList.remove('active');
-      // Request pointer lock with small delay to ensure menu is hidden first
-      setTimeout(() => {
-        this.canvas.requestPointerLock();
-      }, 50);
+      // User needs to click to re-enable pointer lock after unpause
     }
   }
 
