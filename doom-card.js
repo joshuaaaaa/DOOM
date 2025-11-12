@@ -289,7 +289,18 @@ class DoomGame {
   _setupControls() {
     // Keyboard
     document.addEventListener('keydown', (e) => {
-      if (!this.isRunning || this.isPaused) return;
+      if (!this.isRunning) return;
+
+      // ESC works always (for pause/unpause)
+      if (e.key === 'Escape') {
+        this._togglePause();
+        e.preventDefault();
+        return;
+      }
+
+      // Other keys only work when not paused
+      if (this.isPaused) return;
+
       this.keys[e.key.toLowerCase()] = true;
 
       // Weapon switching
@@ -305,11 +316,6 @@ class DoomGame {
       if (e.key === ' ') {
         this._shoot();
         e.preventDefault();
-      }
-
-      // Pause
-      if (e.key === 'Escape') {
-        this._togglePause();
       }
     });
 
@@ -402,6 +408,7 @@ class DoomGame {
     this.score = 0;
     this.enemies = [];
     this.particles = [];
+    this.isPaused = false;
     this.shadowRoot.querySelector('.game-over').classList.remove('active');
     this.start();
   }
@@ -415,7 +422,10 @@ class DoomGame {
       document.exitPointerLock();
     } else {
       menu.classList.remove('active');
-      this.canvas.requestPointerLock();
+      // Request pointer lock with small delay to ensure menu is hidden first
+      setTimeout(() => {
+        this.canvas.requestPointerLock();
+      }, 50);
     }
   }
 
