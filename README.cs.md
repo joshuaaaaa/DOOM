@@ -20,6 +20,8 @@ Retro DOOM-styl first-person shooter hra jako Lovelace karta pro Home Assistant!
 
 ### HACS (Doporučeno)
 
+⚠️ **DŮLEŽITÉ**: Tento repozitář je aktuálně na vývojové větvi. Postupujte podle těchto kroků:
+
 1. Otevřete HACS ve vašem Home Assistant
 2. Klikněte na "Frontend"
 3. Klikněte na tři tečky v pravém horním rohu
@@ -27,8 +29,11 @@ Retro DOOM-styl first-person shooter hra jako Lovelace karta pro Home Assistant!
 5. Přidejte URL tohoto repozitáře: `https://github.com/joshuaaaaa/DOOM`
 6. Vyberte kategorii: "Lovelace"
 7. Klikněte "PŘIDAT"
-8. Najděte "DOOM Card" v seznamu a klikněte "INSTALOVAT"
-9. Restartujte Home Assistant
+8. **Po přidání** klikněte na repozitář a vyberte větev: `claude/doom-game-hacs-integration-011CV3d8zmxXfsBh4zfcQXCz`
+9. Najděte "DOOM Card" v seznamu a klikněte "INSTALOVAT"
+10. Restartujte Home Assistant
+
+📖 **Detailní návod**: Viz [HACS_INSTALLATION.md](HACS_INSTALLATION.md) pro řešení problémů a více detailů.
 
 ### Manuální Instalace
 
