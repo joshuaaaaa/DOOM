@@ -13,7 +13,7 @@ Retro DOOM-style first-person shooter game as a Lovelace card for Home Assistant
 - 👾 **Intelligent Enemies** - AI enemies that chase and attack
 - 🗺️ **Progressive Difficulty** - More enemies each level
 - 🎵 **Retro Sound Effects** - Synthesized weapon sounds
-- ⌨️ **Dual Control System** - Keyboard and mouse support
+- ⌨️ **IJKL Controls** - Classic keyboard controls with mouse support
 - 📊 **HUD Display** - Health, ammo, weapon, and level tracking
 - 🎯 **Crosshair Aiming** - Precise targeting system
 - 💥 **Particle Effects** - Blood splatter and explosions
@@ -69,10 +69,10 @@ That's it! No additional configuration needed.
 
 ### Keyboard
 
-- **W** or **↑** - Move forward
-- **S** or **↓** - Move backward
-- **A** or **←** - Turn left
-- **D** or **→** - Turn right
+- **I** - Move forward
+- **K** - Move backward
+- **J** - Turn left
+- **L** - Turn right
 - **Space** - Shoot
 - **1** - Switch to Pistol (unlimited ammo)
 - **2** - Switch to Shotgun (24 rounds)

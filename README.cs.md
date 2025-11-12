@@ -11,7 +11,7 @@ Retro DOOM-styl first-person shooter hra jako Lovelace karta pro Home Assistant!
 - 👾 **Inteligentní nepřátelé** - AI nepřátelé, kteří vás pronásledují a útočí
 - 🗺️ **Progresivní obtížnost** - Více nepřátel s každou úrovní
 - 🎵 **Retro Zvukové Efekty** - Syntetizované zvuky zbraní
-- ⌨️ **Duální Ovládání** - Podpora klávesnice a myši
+- ⌨️ **IJKL Ovládání** - Klasické klávesové ovládání s podporou myši
 - 📊 **HUD Displej** - Sledování zdraví, munice, zbraně a úrovně
 - 🎯 **Zaměřovač** - Přesný zaměřovací systém
 - 💥 **Částicové Efekty** - Krev a exploze
@@ -67,10 +67,10 @@ To je vše! Žádná další konfigurace není potřeba.
 
 ### Klávesnice
 
-- **W** nebo **↑** - Pohyb vpřed
-- **S** nebo **↓** - Pohyb vzad
-- **A** nebo **←** - Otočit vlevo
-- **D** nebo **→** - Otočit vpravo
+- **I** - Pohyb vpřed
+- **K** - Pohyb vzad
+- **J** - Otočit vlevo
+- **L** - Otočit vpravo
 - **Mezerník** - Střelba
 - **1** - Přepnout na Pistoli (neomezená munice)
 - **2** - Přepnout na Brokovnici (24 nábojů)

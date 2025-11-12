@@ -530,10 +530,10 @@ class DoomGame {
     const rotSpeed = this.player.rotSpeed;
 
     // Rotation
-    if (this.keys['arrowleft'] || this.keys['a']) {
+    if (this.keys['j']) {
       this.player.angle -= rotSpeed;
     }
-    if (this.keys['arrowright'] || this.keys['d']) {
+    if (this.keys['l']) {
       this.player.angle += rotSpeed;
     }
 
@@ -547,11 +547,11 @@ class DoomGame {
     let newX = this.player.x;
     let newY = this.player.y;
 
-    if (this.keys['arrowup'] || this.keys['w']) {
+    if (this.keys['i']) {
       newX += Math.cos(this.player.angle) * moveSpeed;
       newY += Math.sin(this.player.angle) * moveSpeed;
     }
-    if (this.keys['arrowdown'] || this.keys['s']) {
+    if (this.keys['k']) {
       newX -= Math.cos(this.player.angle) * moveSpeed;
       newY -= Math.sin(this.player.angle) * moveSpeed;
     }
