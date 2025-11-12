@@ -317,34 +317,22 @@ class DoomGame {
       this.keys[e.key.toLowerCase()] = false;
     });
 
-    // Mouse movement - only when pointer is locked
+    // Mouse movement
     this.canvas.addEventListener('mousemove', (e) => {
       if (!this.isRunning || this.isPaused) return;
-      // Only use mouse movement if pointer is actually locked
-      if (document.pointerLockElement === this.canvas) {
-        this.mouseMovement = e.movementX || 0;
-      }
+      this.mouseMovement = e.movementX || 0;
     });
 
-    // Mouse click - shoot if pointer locked, otherwise request lock
+    // Mouse click to shoot
     this.canvas.addEventListener('click', (e) => {
-      if (!this.isRunning) return;
-
-      if (document.pointerLockElement !== this.canvas) {
-        // Not locked yet, request pointer lock
-        this.canvas.requestPointerLock();
-      } else if (!this.isPaused) {
-        // Pointer is locked and game is running, shoot
-        this._shoot();
-        e.preventDefault();
-      }
+      if (!this.isRunning || this.isPaused) return;
+      this._shoot();
     });
 
-    // Pointer lock change event
-    document.addEventListener('pointerlockchange', () => {
-      if (document.pointerLockElement !== this.canvas) {
-        // Pointer lock was released, reset mouse movement
-        this.mouseMovement = 0;
+    // Request pointer lock
+    this.canvas.addEventListener('click', () => {
+      if (this.isRunning && !this.isPaused) {
+        this.canvas.requestPointerLock();
       }
     });
   }
@@ -370,7 +358,6 @@ class DoomGame {
     this.score = 0;
     this.enemies = [];
     this.particles = [];
-    this.isPaused = false;
     this.shadowRoot.querySelector('.game-over').classList.remove('active');
     this.start();
   }
