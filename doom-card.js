@@ -258,8 +258,12 @@ class DoomGame {
 
     // Ray casting settings
     this.fov = Math.PI / 3;
-    this.numRays = 120;
+    this.numRays = 100; // Reduced from 120 for better performance
     this.maxDepth = 20;
+
+    // Performance optimization
+    this.lastFrameTime = 0;
+    this.frameDelay = 1000 / 60; // Target 60 FPS
 
     // Map - 1 = wall, 0 = empty, 2 = door
     this.map = [
@@ -313,22 +317,34 @@ class DoomGame {
       this.keys[e.key.toLowerCase()] = false;
     });
 
-    // Mouse movement
+    // Mouse movement - only when pointer is locked
     this.canvas.addEventListener('mousemove', (e) => {
       if (!this.isRunning || this.isPaused) return;
-      this.mouseMovement = e.movementX || 0;
+      // Only use mouse movement if pointer is actually locked
+      if (document.pointerLockElement === this.canvas) {
+        this.mouseMovement = e.movementX || 0;
+      }
     });
 
-    // Mouse click to shoot
+    // Mouse click - shoot if pointer locked, otherwise request lock
     this.canvas.addEventListener('click', (e) => {
-      if (!this.isRunning || this.isPaused) return;
-      this._shoot();
+      if (!this.isRunning) return;
+
+      if (document.pointerLockElement !== this.canvas) {
+        // Not locked yet, request pointer lock
+        this.canvas.requestPointerLock();
+      } else if (!this.isPaused) {
+        // Pointer is locked and game is running, shoot
+        this._shoot();
+        e.preventDefault();
+      }
     });
 
-    // Request pointer lock
-    this.canvas.addEventListener('click', () => {
-      if (this.isRunning && !this.isPaused) {
-        this.canvas.requestPointerLock();
+    // Pointer lock change event
+    document.addEventListener('pointerlockchange', () => {
+      if (document.pointerLockElement !== this.canvas) {
+        // Pointer lock was released, reset mouse movement
+        this.mouseMovement = 0;
       }
     });
   }
@@ -541,15 +557,22 @@ class DoomGame {
     oscillator.stop(audioContext.currentTime + 0.1);
   }
 
-  _gameLoop() {
+  _gameLoop(currentTime = 0) {
     if (!this.isRunning) return;
 
-    if (!this.isPaused) {
-      this._update();
-      this._render();
+    // Frame rate control - prevent excessive rendering
+    const deltaTime = currentTime - this.lastFrameTime;
+
+    if (deltaTime >= this.frameDelay) {
+      this.lastFrameTime = currentTime - (deltaTime % this.frameDelay);
+
+      if (!this.isPaused) {
+        this._update();
+        this._render();
+      }
     }
 
-    requestAnimationFrame(() => this._gameLoop());
+    requestAnimationFrame((time) => this._gameLoop(time));
   }
 
   _update() {
@@ -846,147 +869,299 @@ class DoomGame {
     const animTime = Date.now() * 0.005;
     const bounce = state === 'chase' ? Math.sin(animTime) * 2 : 0;
 
-    // Shadow on ground
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    this.ctx.ellipse(x + width / 2, y + height + 2, width / 2.5, width / 8, 0, 0, Math.PI * 2);
+    // Shadow on ground - larger and more visible
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    this.ctx.beginPath();
+    this.ctx.ellipse(x + width / 2, y + height + 3, width / 2.2, width / 9, 0, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Body proportions
-    const headHeight = height * 0.25;
-    const bodyHeight = height * 0.45;
+    // Body proportions - better proportions
+    const headHeight = height * 0.22;
+    const neckHeight = height * 0.05;
+    const bodyHeight = height * 0.43;
     const legsHeight = height * 0.3;
-    const headWidth = width * 0.6;
-    const bodyWidth = width * 0.7;
+    const headWidth = width * 0.55;
+    const bodyWidth = width * 0.75;
 
-    const bodyY = y + headHeight + bounce;
+    const bodyY = y + headHeight + neckHeight + bounce;
 
-    // Outline/shadow for depth
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    // Outer glow for visibility
+    if (distance < 4) {
+      this.ctx.fillStyle = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0.2)`;
+      this.ctx.fillRect(x - 3, y - 3, width + 6, height + 6);
+    }
+
+    // Main outline/shadow for depth
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     this.ctx.fillRect(x - 2, y - 2, width + 4, height + 4);
 
     // === LEGS ===
     const legY = bodyY + bodyHeight;
-    const legWidth = width * 0.25;
-    const legOffset = state === 'chase' ? Math.sin(animTime * 2) * 3 : 0;
+    const legWidth = width * 0.28;
+    const legOffset = state === 'chase' ? Math.sin(animTime * 2) * 4 : 0;
+    const bootHeight = legsHeight * 0.25;
 
-    // Left leg
-    const legGradientL = this.ctx.createLinearGradient(x + width * 0.2, legY, x + width * 0.2 + legWidth, legY);
-    legGradientL.addColorStop(0, `rgb(${baseColor.r * brightness * 0.5}, ${baseColor.g * brightness * 0.5}, ${baseColor.b * brightness * 0.5})`);
-    legGradientL.addColorStop(1, `rgb(${baseColor.r * brightness * 0.3}, ${baseColor.g * brightness * 0.3}, ${baseColor.b * brightness * 0.3})`);
+    // Left leg with gradient and detail
+    const legGradientL = this.ctx.createLinearGradient(x + width * 0.18, legY, x + width * 0.18, legY + legsHeight);
+    legGradientL.addColorStop(0, `rgb(${baseColor.r * brightness * 0.55}, ${baseColor.g * brightness * 0.55}, ${baseColor.b * brightness * 0.55})`);
+    legGradientL.addColorStop(0.5, `rgb(${baseColor.r * brightness * 0.45}, ${baseColor.g * brightness * 0.45}, ${baseColor.b * brightness * 0.45})`);
+    legGradientL.addColorStop(1, `rgb(${baseColor.r * brightness * 0.35}, ${baseColor.g * brightness * 0.35}, ${baseColor.b * brightness * 0.35})`);
     this.ctx.fillStyle = legGradientL;
-    this.ctx.fillRect(x + width * 0.2, legY + legOffset, legWidth, legsHeight);
+    this.ctx.fillRect(x + width * 0.18, legY + legOffset, legWidth, legsHeight - bootHeight);
 
-    // Right leg
-    const legGradientR = this.ctx.createLinearGradient(x + width * 0.55, legY, x + width * 0.55 + legWidth, legY);
-    legGradientR.addColorStop(0, `rgb(${baseColor.r * brightness * 0.5}, ${baseColor.g * brightness * 0.5}, ${baseColor.b * brightness * 0.5})`);
-    legGradientR.addColorStop(1, `rgb(${baseColor.r * brightness * 0.3}, ${baseColor.g * brightness * 0.3}, ${baseColor.b * brightness * 0.3})`);
+    // Left boot
+    this.ctx.fillStyle = `rgb(${baseColor.r * brightness * 0.2}, ${baseColor.g * brightness * 0.2}, ${baseColor.b * brightness * 0.2})`;
+    this.ctx.fillRect(x + width * 0.18, legY + legOffset + legsHeight - bootHeight, legWidth + 2, bootHeight);
+
+    // Right leg with gradient and detail
+    const legGradientR = this.ctx.createLinearGradient(x + width * 0.54, legY, x + width * 0.54, legY + legsHeight);
+    legGradientR.addColorStop(0, `rgb(${baseColor.r * brightness * 0.55}, ${baseColor.g * brightness * 0.55}, ${baseColor.b * brightness * 0.55})`);
+    legGradientR.addColorStop(0.5, `rgb(${baseColor.r * brightness * 0.45}, ${baseColor.g * brightness * 0.45}, ${baseColor.b * brightness * 0.45})`);
+    legGradientR.addColorStop(1, `rgb(${baseColor.r * brightness * 0.35}, ${baseColor.g * brightness * 0.35}, ${baseColor.b * brightness * 0.35})`);
     this.ctx.fillStyle = legGradientR;
-    this.ctx.fillRect(x + width * 0.55, legY - legOffset, legWidth, legsHeight);
+    this.ctx.fillRect(x + width * 0.54, legY - legOffset, legWidth, legsHeight - bootHeight);
+
+    // Right boot
+    this.ctx.fillStyle = `rgb(${baseColor.r * brightness * 0.2}, ${baseColor.g * brightness * 0.2}, ${baseColor.b * brightness * 0.2})`;
+    this.ctx.fillRect(x + width * 0.54, legY - legOffset + legsHeight - bootHeight, legWidth + 2, bootHeight);
+
+    // Knee details
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    this.ctx.fillRect(x + width * 0.19, legY + legOffset + legsHeight * 0.4, legWidth - 2, 2);
+    this.ctx.fillRect(x + width * 0.55, legY - legOffset + legsHeight * 0.4, legWidth - 2, 2);
 
     // === BODY ===
     const bodyX = x + (width - bodyWidth) / 2;
 
-    // Body gradient (main color)
+    // Body gradient (main color) - vertical for better 3D effect
     const bodyGradient = this.ctx.createLinearGradient(bodyX, bodyY, bodyX + bodyWidth, bodyY);
-    bodyGradient.addColorStop(0, `rgb(${baseColor.r * brightness * 0.9}, ${baseColor.g * brightness * 0.9}, ${baseColor.b * brightness * 0.9})`);
-    bodyGradient.addColorStop(0.5, `rgb(${baseColor.r * brightness}, ${baseColor.g * brightness}, ${baseColor.b * brightness})`);
-    bodyGradient.addColorStop(1, `rgb(${baseColor.r * brightness * 0.7}, ${baseColor.g * brightness * 0.7}, ${baseColor.b * brightness * 0.7})`);
+    bodyGradient.addColorStop(0, `rgb(${baseColor.r * brightness * 0.85}, ${baseColor.g * brightness * 0.85}, ${baseColor.b * brightness * 0.85})`);
+    bodyGradient.addColorStop(0.3, `rgb(${baseColor.r * brightness}, ${baseColor.g * brightness}, ${baseColor.b * brightness})`);
+    bodyGradient.addColorStop(0.7, `rgb(${baseColor.r * brightness * 0.95}, ${baseColor.g * brightness * 0.95}, ${baseColor.b * brightness * 0.95})`);
+    bodyGradient.addColorStop(1, `rgb(${baseColor.r * brightness * 0.65}, ${baseColor.g * brightness * 0.65}, ${baseColor.b * brightness * 0.65})`);
     this.ctx.fillStyle = bodyGradient;
     this.ctx.fillRect(bodyX, bodyY, bodyWidth, bodyHeight);
 
-    // Body details (armor plates)
+    // Chest armor plate (center)
     this.ctx.fillStyle = `rgba(0, 0, 0, 0.3)`;
-    const plateSpacing = bodyHeight / 4;
+    const chestWidth = bodyWidth * 0.4;
+    const chestX = bodyX + (bodyWidth - chestWidth) / 2;
+    this.ctx.fillRect(chestX, bodyY + bodyHeight * 0.1, chestWidth, bodyHeight * 0.5);
+
+    // Chest armor highlight
+    this.ctx.fillStyle = `rgba(255, 255, 255, 0.1)`;
+    this.ctx.fillRect(chestX + 2, bodyY + bodyHeight * 0.12, chestWidth * 0.3, bodyHeight * 0.15);
+
+    // Shoulder pads
+    this.ctx.fillStyle = `rgb(${baseColor.r * brightness * 0.5}, ${baseColor.g * brightness * 0.5}, ${baseColor.b * brightness * 0.5})`;
+    this.ctx.fillRect(bodyX - 2, bodyY, bodyWidth * 0.25, bodyHeight * 0.25);
+    this.ctx.fillRect(bodyX + bodyWidth * 0.75 + 2, bodyY, bodyWidth * 0.25, bodyHeight * 0.25);
+
+    // Belt
+    this.ctx.fillStyle = `rgb(${baseColor.r * brightness * 0.25}, ${baseColor.g * brightness * 0.25}, ${baseColor.b * brightness * 0.25})`;
+    this.ctx.fillRect(bodyX, bodyY + bodyHeight * 0.75, bodyWidth, bodyHeight * 0.12);
+
+    // Belt buckle
+    if (distance < 5) {
+      this.ctx.fillStyle = '#888';
+      this.ctx.fillRect(bodyX + bodyWidth * 0.45, bodyY + bodyHeight * 0.76, bodyWidth * 0.1, bodyHeight * 0.08);
+    }
+
+    // Side panels/ribs
+    this.ctx.fillStyle = `rgba(0, 0, 0, 0.25)`;
+    const ribSpacing = bodyHeight * 0.15;
     for (let i = 1; i < 4; i++) {
-      this.ctx.fillRect(bodyX + 2, bodyY + i * plateSpacing, bodyWidth - 4, 2);
+      this.ctx.fillRect(bodyX + 3, bodyY + i * ribSpacing, 2, bodyHeight * 0.1);
+      this.ctx.fillRect(bodyX + bodyWidth - 5, bodyY + i * ribSpacing, 2, bodyHeight * 0.1);
     }
 
     // Arms
-    const armWidth = width * 0.15;
-    const armHeight = bodyHeight * 0.8;
-    const armY = bodyY + bodyHeight * 0.15;
-    const armSwing = state === 'attack' ? Math.sin(animTime * 4) * 5 : (state === 'chase' ? Math.sin(animTime * 1.5) * 4 : 0);
+    const armWidth = width * 0.18;
+    const armHeight = bodyHeight * 0.85;
+    const armY = bodyY + bodyHeight * 0.12;
+    const armSwing = state === 'attack' ? Math.sin(animTime * 4) * 6 : (state === 'chase' ? Math.sin(animTime * 1.5) * 5 : 0);
+    const forearmHeight = armHeight * 0.55;
 
-    // Left arm
-    this.ctx.fillStyle = `rgb(${baseColor.r * brightness * 0.6}, ${baseColor.g * brightness * 0.6}, ${baseColor.b * brightness * 0.6})`;
-    this.ctx.fillRect(bodyX - armWidth, armY + armSwing, armWidth, armHeight);
+    // Left arm - upper arm
+    const leftArmGradient = this.ctx.createLinearGradient(bodyX - armWidth, armY, bodyX, armY);
+    leftArmGradient.addColorStop(0, `rgb(${baseColor.r * brightness * 0.5}, ${baseColor.g * brightness * 0.5}, ${baseColor.b * brightness * 0.5})`);
+    leftArmGradient.addColorStop(1, `rgb(${baseColor.r * brightness * 0.65}, ${baseColor.g * brightness * 0.65}, ${baseColor.b * brightness * 0.65})`);
+    this.ctx.fillStyle = leftArmGradient;
+    this.ctx.fillRect(bodyX - armWidth, armY + armSwing, armWidth, armHeight - forearmHeight);
 
-    // Right arm
-    this.ctx.fillRect(bodyX + bodyWidth, armY - armSwing, armWidth, armHeight);
+    // Left forearm
+    this.ctx.fillStyle = `rgb(${baseColor.r * brightness * 0.55}, ${baseColor.g * brightness * 0.55}, ${baseColor.b * brightness * 0.55})`;
+    this.ctx.fillRect(bodyX - armWidth, armY + armSwing + armHeight - forearmHeight, armWidth, forearmHeight);
+
+    // Left hand/glove
+    this.ctx.fillStyle = `rgb(${baseColor.r * brightness * 0.3}, ${baseColor.g * brightness * 0.3}, ${baseColor.b * brightness * 0.3})`;
+    this.ctx.fillRect(bodyX - armWidth, armY + armSwing + armHeight - armHeight * 0.15, armWidth + 2, armHeight * 0.15);
+
+    // Right arm - upper arm
+    const rightArmGradient = this.ctx.createLinearGradient(bodyX + bodyWidth, armY, bodyX + bodyWidth + armWidth, armY);
+    rightArmGradient.addColorStop(0, `rgb(${baseColor.r * brightness * 0.65}, ${baseColor.g * brightness * 0.65}, ${baseColor.b * brightness * 0.65})`);
+    rightArmGradient.addColorStop(1, `rgb(${baseColor.r * brightness * 0.5}, ${baseColor.g * brightness * 0.5}, ${baseColor.b * brightness * 0.5})`);
+    this.ctx.fillStyle = rightArmGradient;
+    this.ctx.fillRect(bodyX + bodyWidth, armY - armSwing, armWidth, armHeight - forearmHeight);
+
+    // Right forearm
+    this.ctx.fillStyle = `rgb(${baseColor.r * brightness * 0.55}, ${baseColor.g * brightness * 0.55}, ${baseColor.b * brightness * 0.55})`;
+    this.ctx.fillRect(bodyX + bodyWidth, armY - armSwing + armHeight - forearmHeight, armWidth, forearmHeight);
+
+    // Right hand/glove
+    this.ctx.fillStyle = `rgb(${baseColor.r * brightness * 0.3}, ${baseColor.g * brightness * 0.3}, ${baseColor.b * brightness * 0.3})`;
+    this.ctx.fillRect(bodyX + bodyWidth, armY - armSwing + armHeight - armHeight * 0.15, armWidth + 2, armHeight * 0.15);
+
+    // === NECK ===
+    const neckX = x + width * 0.42;
+    const neckWidth = width * 0.16;
+    this.ctx.fillStyle = `rgb(${baseColor.r * brightness * 0.4}, ${baseColor.g * brightness * 0.4}, ${baseColor.b * brightness * 0.4})`;
+    this.ctx.fillRect(neckX, y + headHeight + bounce, neckWidth, neckHeight);
 
     // === HEAD ===
     const headX = x + (width - headWidth) / 2;
     const headY = y + bounce;
 
-    // Head gradient
+    // Head/helmet gradient with better 3D effect
     const headGradient = this.ctx.createLinearGradient(headX, headY, headX + headWidth, headY);
-    headGradient.addColorStop(0, `rgb(${baseColor.r * brightness * 0.8}, ${baseColor.g * brightness * 0.8}, ${baseColor.b * brightness * 0.8})`);
-    headGradient.addColorStop(0.5, `rgb(${baseColor.r * brightness}, ${baseColor.g * brightness}, ${baseColor.b * brightness})`);
-    headGradient.addColorStop(1, `rgb(${baseColor.r * brightness * 0.6}, ${baseColor.g * brightness * 0.6}, ${baseColor.b * brightness * 0.6})`);
+    headGradient.addColorStop(0, `rgb(${baseColor.r * brightness * 0.75}, ${baseColor.g * brightness * 0.75}, ${baseColor.b * brightness * 0.75})`);
+    headGradient.addColorStop(0.4, `rgb(${baseColor.r * brightness * 1.05}, ${baseColor.g * brightness * 1.05}, ${baseColor.b * brightness * 1.05})`);
+    headGradient.addColorStop(0.6, `rgb(${baseColor.r * brightness}, ${baseColor.g * brightness}, ${baseColor.b * brightness})`);
+    headGradient.addColorStop(1, `rgb(${baseColor.r * brightness * 0.55}, ${baseColor.g * brightness * 0.55}, ${baseColor.b * brightness * 0.55})`);
     this.ctx.fillStyle = headGradient;
     this.ctx.fillRect(headX, headY, headWidth, headHeight);
 
-    // Helmet detail
-    this.ctx.fillStyle = `rgba(255, 255, 255, 0.2)`;
-    this.ctx.fillRect(headX + headWidth * 0.1, headY + 2, headWidth * 0.8, headHeight * 0.2);
+    // Helmet visor area (darker)
+    this.ctx.fillStyle = `rgba(0, 0, 0, 0.4)`;
+    this.ctx.fillRect(headX + headWidth * 0.12, headY + headHeight * 0.35, headWidth * 0.76, headHeight * 0.4);
 
-    // Eyes (only if close enough)
-    if (distance < 6) {
-      const eyeWidth = headWidth * 0.15;
-      const eyeHeight = headHeight * 0.25;
-      const eyeY = headY + headHeight * 0.4;
+    // Helmet top ridge
+    this.ctx.fillStyle = `rgba(255, 255, 255, 0.25)`;
+    this.ctx.fillRect(headX + headWidth * 0.1, headY + 2, headWidth * 0.8, headHeight * 0.15);
+
+    // Helmet side vents
+    if (distance < 5) {
+      this.ctx.fillStyle = `rgba(0, 0, 0, 0.5)`;
+      this.ctx.fillRect(headX + 2, headY + headHeight * 0.25, 3, headHeight * 0.15);
+      this.ctx.fillRect(headX + headWidth - 5, headY + headHeight * 0.25, 3, headHeight * 0.15);
+    }
+
+    // Eyes (only if close enough) - better design
+    if (distance < 7) {
+      const eyeWidth = headWidth * 0.18;
+      const eyeHeight = headHeight * 0.28;
+      const eyeY = headY + headHeight * 0.42;
 
       // Eye glow based on state
-      let eyeColor = '#0f0'; // idle - green
-      if (state === 'chase') eyeColor = '#ff0'; // yellow
-      if (state === 'attack') eyeColor = '#f00'; // red
+      let eyeColor = { r: 0, g: 255, b: 0 }; // idle - green
+      if (state === 'chase') eyeColor = { r: 255, g: 255, b: 0 }; // yellow
+      if (state === 'attack') eyeColor = { r: 255, g: 0, b: 0 }; // red
 
-      // Left eye
+      // Eye glow/aura effect (outer)
+      if (state === 'attack' || state === 'chase') {
+        const glowSize = state === 'attack' ? 3 : 2;
+        this.ctx.fillStyle = `rgba(${eyeColor.r}, ${eyeColor.g}, ${eyeColor.b}, 0.3)`;
+        this.ctx.fillRect(headX + headWidth * 0.24 - glowSize, eyeY - glowSize, eyeWidth + glowSize * 2, eyeHeight + glowSize * 2);
+        this.ctx.fillRect(headX + headWidth * 0.58 - glowSize, eyeY - glowSize, eyeWidth + glowSize * 2, eyeHeight + glowSize * 2);
+      }
+
+      // Left eye - socket
       this.ctx.fillStyle = '#000';
-      this.ctx.fillRect(headX + headWidth * 0.25, eyeY, eyeWidth, eyeHeight);
-      this.ctx.fillStyle = eyeColor;
-      this.ctx.fillRect(headX + headWidth * 0.25 + 1, eyeY + 1, eyeWidth - 2, eyeHeight - 2);
+      this.ctx.fillRect(headX + headWidth * 0.24, eyeY, eyeWidth, eyeHeight);
 
-      // Right eye
+      // Left eye - glow gradient
+      const leftEyeGradient = this.ctx.createRadialGradient(
+        headX + headWidth * 0.24 + eyeWidth / 2, eyeY + eyeHeight / 2, 0,
+        headX + headWidth * 0.24 + eyeWidth / 2, eyeY + eyeHeight / 2, eyeWidth / 2
+      );
+      leftEyeGradient.addColorStop(0, `rgb(${eyeColor.r}, ${eyeColor.g}, ${eyeColor.b})`);
+      leftEyeGradient.addColorStop(0.7, `rgb(${eyeColor.r * 0.8}, ${eyeColor.g * 0.8}, ${eyeColor.b * 0.8})`);
+      leftEyeGradient.addColorStop(1, `rgb(${eyeColor.r * 0.4}, ${eyeColor.g * 0.4}, ${eyeColor.b * 0.4})`);
+      this.ctx.fillStyle = leftEyeGradient;
+      this.ctx.fillRect(headX + headWidth * 0.24 + 1, eyeY + 1, eyeWidth - 2, eyeHeight - 2);
+
+      // Right eye - socket
       this.ctx.fillStyle = '#000';
-      this.ctx.fillRect(headX + headWidth * 0.6, eyeY, eyeWidth, eyeHeight);
-      this.ctx.fillStyle = eyeColor;
-      this.ctx.fillRect(headX + headWidth * 0.6 + 1, eyeY + 1, eyeWidth - 2, eyeHeight - 2);
+      this.ctx.fillRect(headX + headWidth * 0.58, eyeY, eyeWidth, eyeHeight);
 
-      // Eye glow effect
-      if (state === 'attack') {
-        this.ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
-        this.ctx.fillRect(headX + headWidth * 0.25 - 1, eyeY - 1, eyeWidth + 2, eyeHeight + 2);
-        this.ctx.fillRect(headX + headWidth * 0.6 - 1, eyeY - 1, eyeWidth + 2, eyeHeight + 2);
+      // Right eye - glow gradient
+      const rightEyeGradient = this.ctx.createRadialGradient(
+        headX + headWidth * 0.58 + eyeWidth / 2, eyeY + eyeHeight / 2, 0,
+        headX + headWidth * 0.58 + eyeWidth / 2, eyeY + eyeHeight / 2, eyeWidth / 2
+      );
+      rightEyeGradient.addColorStop(0, `rgb(${eyeColor.r}, ${eyeColor.g}, ${eyeColor.b})`);
+      rightEyeGradient.addColorStop(0.7, `rgb(${eyeColor.r * 0.8}, ${eyeColor.g * 0.8}, ${eyeColor.b * 0.8})`);
+      rightEyeGradient.addColorStop(1, `rgb(${eyeColor.r * 0.4}, ${eyeColor.g * 0.4}, ${eyeColor.b * 0.4})`);
+      this.ctx.fillStyle = rightEyeGradient;
+      this.ctx.fillRect(headX + headWidth * 0.58 + 1, eyeY + 1, eyeWidth - 2, eyeHeight - 2);
+
+      // Eye pupils/highlights
+      if (distance < 4) {
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        this.ctx.fillRect(headX + headWidth * 0.26, eyeY + 2, eyeWidth * 0.3, eyeHeight * 0.25);
+        this.ctx.fillRect(headX + headWidth * 0.60, eyeY + 2, eyeWidth * 0.3, eyeHeight * 0.25);
       }
     }
 
-    // Weapon in hand (if attacking)
-    if (state === 'attack' && distance < 7) {
+    // Weapon in hand (if attacking) - better weapon design
+    if (state === 'attack' && distance < 8) {
       const weaponX = bodyX + bodyWidth;
-      const weaponY = armY - armSwing + armHeight / 2;
-      const weaponWidth = width * 0.25;
-      const weaponHeight = width * 0.1;
+      const weaponY = armY - armSwing + armHeight * 0.45;
+      const weaponWidth = width * 0.3;
+      const weaponHeight = width * 0.12;
 
-      // Weapon
-      this.ctx.fillStyle = '#666';
-      this.ctx.fillRect(weaponX + armWidth, weaponY, weaponWidth, weaponHeight);
-      this.ctx.fillStyle = '#888';
-      this.ctx.fillRect(weaponX + armWidth, weaponY, weaponWidth * 0.3, weaponHeight);
+      // Weapon barrel
+      const barrelGradient = this.ctx.createLinearGradient(weaponX + armWidth, weaponY, weaponX + armWidth, weaponY + weaponHeight);
+      barrelGradient.addColorStop(0, '#555');
+      barrelGradient.addColorStop(0.5, '#777');
+      barrelGradient.addColorStop(1, '#444');
+      this.ctx.fillStyle = barrelGradient;
+      this.ctx.fillRect(weaponX + armWidth, weaponY, weaponWidth * 0.7, weaponHeight);
 
-      // Muzzle flash
-      if (Math.sin(animTime * 8) > 0.7) {
-        this.ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
-        this.ctx.fillRect(weaponX + armWidth + weaponWidth, weaponY - weaponHeight / 2, weaponWidth * 0.3, weaponHeight * 2);
-        this.ctx.fillStyle = 'rgba(255, 200, 0, 0.6)';
-        this.ctx.fillRect(weaponX + armWidth + weaponWidth, weaponY, weaponWidth * 0.5, weaponHeight);
+      // Weapon grip
+      this.ctx.fillStyle = '#333';
+      this.ctx.fillRect(weaponX + armWidth - weaponWidth * 0.15, weaponY + weaponHeight * 0.3, weaponWidth * 0.25, weaponHeight * 0.8);
+
+      // Weapon details
+      this.ctx.fillStyle = '#999';
+      this.ctx.fillRect(weaponX + armWidth + weaponWidth * 0.1, weaponY - 2, weaponWidth * 0.15, weaponHeight + 4);
+
+      // Muzzle flash with better effect
+      if (Math.sin(animTime * 10) > 0.7) {
+        const flashIntensity = Math.abs(Math.sin(animTime * 15));
+
+        // Outer flash (yellow)
+        this.ctx.fillStyle = `rgba(255, 255, 0, ${0.7 * flashIntensity})`;
+        this.ctx.fillRect(weaponX + armWidth + weaponWidth * 0.7, weaponY - weaponHeight, weaponWidth * 0.4, weaponHeight * 3);
+
+        // Middle flash (orange)
+        this.ctx.fillStyle = `rgba(255, 200, 0, ${0.8 * flashIntensity})`;
+        this.ctx.fillRect(weaponX + armWidth + weaponWidth * 0.7, weaponY - weaponHeight * 0.5, weaponWidth * 0.5, weaponHeight * 2);
+
+        // Inner flash (white)
+        this.ctx.fillStyle = `rgba(255, 255, 255, ${0.9 * flashIntensity})`;
+        this.ctx.fillRect(weaponX + armWidth + weaponWidth * 0.7, weaponY, weaponWidth * 0.3, weaponHeight);
+
+        // Flash particles
+        if (distance < 5) {
+          for (let i = 0; i < 3; i++) {
+            const particleX = weaponX + armWidth + weaponWidth * 0.9 + Math.random() * weaponWidth * 0.3;
+            const particleY = weaponY + Math.random() * weaponHeight;
+            this.ctx.fillStyle = `rgba(255, ${200 + Math.random() * 55}, 0, ${flashIntensity})`;
+            this.ctx.fillRect(particleX, particleY, 2, 2);
+          }
+        }
       }
     }
 
-    // Highlight on top for 3D effect
-    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    this.ctx.fillRect(headX, headY, headWidth / 3, headHeight);
-    this.ctx.fillRect(bodyX, bodyY, bodyWidth / 3, bodyHeight / 2);
+    // Final highlights for overall 3D effect
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+    this.ctx.fillRect(headX + headWidth * 0.1, headY, headWidth * 0.25, headHeight * 0.5);
+    this.ctx.fillRect(bodyX + bodyWidth * 0.25, bodyY, bodyWidth * 0.2, bodyHeight * 0.4);
+
+    // Rim light effect on edge
+    this.ctx.fillStyle = `rgba(255, 255, 255, 0.1)`;
+    this.ctx.fillRect(x + width - 1, y, 1, height);
   }
 
   _gameOver() {
