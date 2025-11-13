@@ -164,11 +164,14 @@ class DoomCard extends HTMLElement {
         <div class="ammo">AMMO: <span id="ammo">50</span></div>
         <div>LEVEL: <span id="level">1</span></div>
       </div>
-      <div class="hud-section" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; font-size: 12px; color: #0f0;">
+      <div class="hud-section" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; font-size: 11px; color: #0f0;">
         <div>POINTER LOCK: <span id="debug-lock" style="color: #f00;">NO</span></div>
+        <div>CLICKS: <span id="debug-clicks">0</span></div>
+        <div>LOCK REQUESTS: <span id="debug-requests">0</span></div>
         <div>MOUSE MOVE: <span id="debug-mouse">0</span></div>
         <div>ANGLE: <span id="debug-angle">0</span></div>
         <div>EVENTS: <span id="debug-events">0</span></div>
+        <div>ERROR: <span id="debug-error" style="color: #ff0;">none</span></div>
       </div>
     `;
 
@@ -275,6 +278,9 @@ class DoomGame {
     // Debug counters
     this.debugMouseEventCount = 0;
     this.debugLastMouseMove = 0;
+    this.debugClickCount = 0;
+    this.debugLockRequests = 0;
+    this.debugLastError = 'none';
 
     // Map - 1 = wall, 0 = empty, 2 = door
     this.map = [
@@ -342,25 +348,49 @@ class DoomGame {
 
     // Canvas click - request pointer lock or shoot
     this.canvas.addEventListener('click', async () => {
-      if (!this.isRunning || this.isPaused) return;
+      // Debug: count all clicks
+      this.debugClickCount++;
+      console.log('[DEBUG] Canvas clicked!', this.debugClickCount);
+      this._updateDebugInfo();
+
+      if (!this.isRunning || this.isPaused) {
+        console.log('[DEBUG] Click ignored - game not running or paused');
+        return;
+      }
 
       // Check if pointer is locked (cross-browser)
       const pointerLocked = document.pointerLockElement === this.canvas ||
                            document.mozPointerLockElement === this.canvas ||
                            document.webkitPointerLockElement === this.canvas;
 
+      console.log('[DEBUG] Pointer locked?', pointerLocked);
+
       if (!pointerLocked) {
         // Request pointer lock with unadjustedMovement for raw input
+        this.debugLockRequests++;
+        console.log('[DEBUG] Requesting pointer lock...', this.debugLockRequests);
+        this._updateDebugInfo();
+
         try {
           await this.canvas.requestPointerLock({
             unadjustedMovement: true,
           });
+          console.log('[DEBUG] Pointer lock requested successfully (with unadjustedMovement)');
         } catch (error) {
-          // Fallback for browsers that don't support unadjustedMovement
-          this.canvas.requestPointerLock();
+          console.log('[DEBUG] unadjustedMovement failed, trying fallback:', error);
+          this.debugLastError = 'unadj: ' + error.message;
+          try {
+            this.canvas.requestPointerLock();
+            console.log('[DEBUG] Fallback pointer lock requested');
+          } catch (error2) {
+            console.error('[DEBUG] Pointer lock request failed completely:', error2);
+            this.debugLastError = error2.message;
+            this._updateDebugInfo();
+          }
         }
       } else {
         // Already locked, shoot
+        console.log('[DEBUG] Already locked, shooting');
         this._shoot();
       }
     });
@@ -371,11 +401,15 @@ class DoomGame {
                            document.mozPointerLockElement === this.canvas ||
                            document.webkitPointerLockElement === this.canvas;
 
+      console.log('[DEBUG] Pointer lock changed! Locked:', pointerLocked);
+
       if (pointerLocked) {
         // Pointer locked - start tracking mouse movement
+        console.log('[DEBUG] Adding mousemove listener');
         document.addEventListener('mousemove', mouseMoveHandler, false);
       } else {
         // Pointer unlocked - stop tracking mouse movement
+        console.log('[DEBUG] Removing mousemove listener');
         document.removeEventListener('mousemove', mouseMoveHandler, false);
         this.mouseMovement = 0;
       }
@@ -473,6 +507,12 @@ class DoomGame {
       lockEl.style.color = pointerLocked ? '#0f0' : '#f00';
     }
 
+    const clicksEl = this.shadowRoot.getElementById('debug-clicks');
+    if (clicksEl) clicksEl.textContent = this.debugClickCount;
+
+    const requestsEl = this.shadowRoot.getElementById('debug-requests');
+    if (requestsEl) requestsEl.textContent = this.debugLockRequests;
+
     const mouseEl = this.shadowRoot.getElementById('debug-mouse');
     if (mouseEl) mouseEl.textContent = this.debugLastMouseMove;
 
@@ -481,6 +521,9 @@ class DoomGame {
 
     const eventsEl = this.shadowRoot.getElementById('debug-events');
     if (eventsEl) eventsEl.textContent = this.debugMouseEventCount;
+
+    const errorEl = this.shadowRoot.getElementById('debug-error');
+    if (errorEl) errorEl.textContent = this.debugLastError;
   }
 
   _shoot() {
