@@ -422,6 +422,26 @@ class DoomGame {
     document.addEventListener('pointerlockchange', pointerLockChange, false);
     document.addEventListener('mozpointerlockchange', pointerLockChange, false);
     document.addEventListener('webkitpointerlockchange', pointerLockChange, false);
+
+    // Listen for pointer lock errors (cross-browser)
+    const pointerLockError = (e) => {
+      console.error('[DEBUG] Pointer lock ERROR event!', e);
+      this.debugLastError = 'Lock denied by browser';
+      this._updateDebugInfo();
+    };
+    document.addEventListener('pointerlockerror', pointerLockError, false);
+    document.addEventListener('mozpointerlockerror', pointerLockError, false);
+    document.addEventListener('webkitpointerlockerror', pointerLockError, false);
+
+    // Check if pointer lock is available
+    const hasPointerLock = 'requestPointerLock' in this.canvas ||
+                          'mozRequestPointerLock' in this.canvas ||
+                          'webkitRequestPointerLock' in this.canvas;
+    console.log('[DEBUG] Pointer lock API available?', hasPointerLock);
+    if (!hasPointerLock) {
+      this.debugLastError = 'API not available';
+      this._updateDebugInfo();
+    }
   }
 
   start() {
