@@ -164,6 +164,12 @@ class DoomCard extends HTMLElement {
         <div class="ammo">AMMO: <span id="ammo">50</span></div>
         <div>LEVEL: <span id="level">1</span></div>
       </div>
+      <div class="hud-section" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; font-size: 12px; color: #0f0;">
+        <div>POINTER LOCK: <span id="debug-lock" style="color: #f00;">NO</span></div>
+        <div>MOUSE MOVE: <span id="debug-mouse">0</span></div>
+        <div>ANGLE: <span id="debug-angle">0</span></div>
+        <div>EVENTS: <span id="debug-events">0</span></div>
+      </div>
     `;
 
     const crosshair = document.createElement('div');
@@ -266,6 +272,10 @@ class DoomGame {
     this.lastFrameTime = 0;
     this.frameDelay = 1000 / 60; // Target 60 FPS
 
+    // Debug counters
+    this.debugMouseEventCount = 0;
+    this.debugLastMouseMove = 0;
+
     // Map - 1 = wall, 0 = empty, 2 = door
     this.map = [
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -323,6 +333,11 @@ class DoomGame {
       if (!this.isRunning || this.isPaused) return;
       // Use movementX from pointer lock
       this.mouseMovement = e.movementX || e.mozMovementX || e.webkitMovementX || 0;
+
+      // Debug updates
+      this.debugMouseEventCount++;
+      this.debugLastMouseMove = this.mouseMovement;
+      this._updateDebugInfo();
     };
 
     // Canvas click - request pointer lock or shoot
@@ -364,6 +379,9 @@ class DoomGame {
         document.removeEventListener('mousemove', mouseMoveHandler, false);
         this.mouseMovement = 0;
       }
+
+      // Update debug info
+      this._updateDebugInfo();
     };
 
     // Listen for pointer lock changes (cross-browser)
@@ -441,6 +459,28 @@ class DoomGame {
     const ammo = this.weapons[this.currentWeapon].ammo;
     this.shadowRoot.getElementById('ammo').textContent = ammo === Infinity ? '∞' : ammo;
     this.shadowRoot.getElementById('level').textContent = this.level;
+  }
+
+  _updateDebugInfo() {
+    // Check if pointer is locked (cross-browser)
+    const pointerLocked = document.pointerLockElement === this.canvas ||
+                         document.mozPointerLockElement === this.canvas ||
+                         document.webkitPointerLockElement === this.canvas;
+
+    const lockEl = this.shadowRoot.getElementById('debug-lock');
+    if (lockEl) {
+      lockEl.textContent = pointerLocked ? 'YES' : 'NO';
+      lockEl.style.color = pointerLocked ? '#0f0' : '#f00';
+    }
+
+    const mouseEl = this.shadowRoot.getElementById('debug-mouse');
+    if (mouseEl) mouseEl.textContent = this.debugLastMouseMove;
+
+    const angleEl = this.shadowRoot.getElementById('debug-angle');
+    if (angleEl) angleEl.textContent = this.player.angle.toFixed(2);
+
+    const eventsEl = this.shadowRoot.getElementById('debug-events');
+    if (eventsEl) eventsEl.textContent = this.debugMouseEventCount;
   }
 
   _shoot() {
@@ -885,6 +925,9 @@ class DoomGame {
       this.ctx.fillRect(screenX - 2, screenY - 2, 4, 4);
       this.ctx.globalAlpha = 1;
     }
+
+    // Update debug info every frame
+    this._updateDebugInfo();
   }
 
   _drawEnemySprite(x, y, width, height, baseColor, brightness, state, distance) {
