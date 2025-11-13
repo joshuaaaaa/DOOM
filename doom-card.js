@@ -175,6 +175,7 @@ class DoomCard extends HTMLElement {
       <h2>DOOM</h2>
       <p style="font-size: 18px; margin-bottom: 30px;">Click to start</p>
       <button id="start-btn">START GAME</button>
+      <p style="font-size: 12px; margin-top: 20px; color: #888;">Version 1.0.0 (372181c)</p>
     `;
 
     const gameOver = document.createElement('div');
