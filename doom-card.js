@@ -173,9 +173,10 @@ class DoomCard extends HTMLElement {
     menu.className = 'menu active';
     menu.innerHTML = `
       <h2>DOOM</h2>
-      <p style="font-size: 18px; margin-bottom: 30px;">Click to start</p>
+      <p style="font-size: 18px; margin-bottom: 10px;">Move mouse to look around</p>
+      <p style="font-size: 14px; margin-bottom: 20px; color: #aaa;">Click to shoot</p>
       <button id="start-btn">START GAME</button>
-      <p style="font-size: 12px; margin-top: 20px; color: #888;">Version 1.0.0 (372181c)</p>
+      <p style="font-size: 12px; margin-top: 20px; color: #888;">Version 1.1.0 (no-lock)</p>
     `;
 
     const gameOver = document.createElement('div');
@@ -266,6 +267,10 @@ class DoomGame {
     this.lastFrameTime = 0;
     this.frameDelay = 1000 / 60; // Target 60 FPS
 
+    // Mouse tracking (without pointer lock)
+    this.lastMouseX = null;
+    this.isMouseActive = false;
+
     // Map - 1 = wall, 0 = empty, 2 = door
     this.map = [
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -318,23 +323,36 @@ class DoomGame {
       this.keys[e.key.toLowerCase()] = false;
     });
 
-    // Mouse movement
+    // Mouse movement (WITHOUT pointer lock - visible cursor)
+    this.canvas.addEventListener('mouseenter', () => {
+      this.isMouseActive = true;
+      this.lastMouseX = null;
+    });
+
+    this.canvas.addEventListener('mouseleave', () => {
+      this.isMouseActive = false;
+      this.lastMouseX = null;
+      this.mouseMovement = 0;
+    });
+
     this.canvas.addEventListener('mousemove', (e) => {
-      if (!this.isRunning || this.isPaused) return;
-      this.mouseMovement = e.movementX || 0;
+      if (!this.isRunning || this.isPaused || !this.isMouseActive) return;
+
+      const rect = this.canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+
+      if (this.lastMouseX !== null) {
+        // Calculate movement delta
+        this.mouseMovement = (mouseX - this.lastMouseX) * 0.5; // Sensitivity multiplier
+      }
+
+      this.lastMouseX = mouseX;
     });
 
     // Mouse click to shoot
     this.canvas.addEventListener('click', (e) => {
       if (!this.isRunning || this.isPaused) return;
       this._shoot();
-    });
-
-    // Request pointer lock
-    this.canvas.addEventListener('click', () => {
-      if (this.isRunning && !this.isPaused) {
-        this.canvas.requestPointerLock();
-      }
     });
   }
 
@@ -369,10 +387,10 @@ class DoomGame {
     if (this.isPaused) {
       menu.innerHTML = '<h2>PAUSED</h2><p style="font-size: 18px;">Press ESC to continue</p>';
       menu.classList.add('active');
-      document.exitPointerLock();
+      this.mouseMovement = 0;
+      this.lastMouseX = null;
     } else {
       menu.classList.remove('active');
-      this.canvas.requestPointerLock();
     }
   }
 
