@@ -173,10 +173,8 @@ class DoomCard extends HTMLElement {
     menu.className = 'menu active';
     menu.innerHTML = `
       <h2>DOOM</h2>
-      <p style="font-size: 18px; margin-bottom: 10px;">Move mouse to look around</p>
-      <p style="font-size: 14px; margin-bottom: 20px; color: #aaa;">Click to shoot</p>
+      <p style="font-size: 18px; margin-bottom: 30px;">Click to start</p>
       <button id="start-btn">START GAME</button>
-      <p style="font-size: 12px; margin-top: 20px; color: #888;">Version 1.1.0 (no-lock)</p>
     `;
 
     const gameOver = document.createElement('div');
@@ -267,9 +265,6 @@ class DoomGame {
     this.lastFrameTime = 0;
     this.frameDelay = 1000 / 60; // Target 60 FPS
 
-    // Mouse tracking (without pointer lock)
-    this.lastMouseX = null;
-    this.isMouseActive = false;
 
     // Map - 1 = wall, 0 = empty, 2 = door
     this.map = [
@@ -323,36 +318,35 @@ class DoomGame {
       this.keys[e.key.toLowerCase()] = false;
     });
 
-    // Mouse movement (WITHOUT pointer lock - visible cursor)
-    this.canvas.addEventListener('mouseenter', () => {
-      this.isMouseActive = true;
-      this.lastMouseX = null;
-    });
-
-    this.canvas.addEventListener('mouseleave', () => {
-      this.isMouseActive = false;
-      this.lastMouseX = null;
-      this.mouseMovement = 0;
-    });
-
+    // Mouse movement - only when pointer is locked
     this.canvas.addEventListener('mousemove', (e) => {
-      if (!this.isRunning || this.isPaused || !this.isMouseActive) return;
-
-      const rect = this.canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-
-      if (this.lastMouseX !== null) {
-        // Calculate movement delta
-        this.mouseMovement = (mouseX - this.lastMouseX) * 0.5; // Sensitivity multiplier
+      if (!this.isRunning || this.isPaused) return;
+      // Only use mouse movement if pointer is actually locked
+      if (document.pointerLockElement === this.canvas) {
+        this.mouseMovement = e.movementX || 0;
       }
-
-      this.lastMouseX = mouseX;
     });
 
-    // Mouse click to shoot
+    // Mouse click - shoot if pointer locked, otherwise request lock
     this.canvas.addEventListener('click', (e) => {
-      if (!this.isRunning || this.isPaused) return;
-      this._shoot();
+      if (!this.isRunning) return;
+
+      if (document.pointerLockElement !== this.canvas) {
+        // Not locked yet, request pointer lock
+        this.canvas.requestPointerLock();
+      } else if (!this.isPaused) {
+        // Pointer is locked and game is running, shoot
+        this._shoot();
+        e.preventDefault();
+      }
+    });
+
+    // Pointer lock change event
+    document.addEventListener('pointerlockchange', () => {
+      if (document.pointerLockElement !== this.canvas) {
+        // Pointer lock was released, reset mouse movement
+        this.mouseMovement = 0;
+      }
     });
   }
 
@@ -387,10 +381,10 @@ class DoomGame {
     if (this.isPaused) {
       menu.innerHTML = '<h2>PAUSED</h2><p style="font-size: 18px;">Press ESC to continue</p>';
       menu.classList.add('active');
-      this.mouseMovement = 0;
-      this.lastMouseX = null;
+      document.exitPointerLock();
     } else {
       menu.classList.remove('active');
+      this.canvas.requestPointerLock();
     }
   }
 
