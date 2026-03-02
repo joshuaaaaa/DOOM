@@ -5,6 +5,7 @@
 Retro DOOM-style first-person shooter game as a Lovelace card for Home Assistant! Experience classic 3D ray-casting gameplay right in your HA dashboard.
 
 ![DOOM Card](https://via.placeholder.com/640x400/000000/00FF00?text=DOOM+Card)
+<img width="523" height="537" alt="image" src="https://github.com/user-attachments/assets/2ff9b4e4-3766-4062-bf85-21d4ed6fb17d" />
 
 ## Features
 
